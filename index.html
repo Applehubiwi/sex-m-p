@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HQ Video Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0b0f19; color: #f3f4f6; font-family: sans-serif; }
+        .glass-panel { background: rgba(17, 24, 39, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .pagination-btn { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-weight: 600; border: 1px solid rgba(255,255,255,0.1); transition: all 0.2s; }
+        .pagination-btn.active { background-color: #2563eb; color: white; border-color: #3b82f6; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+    <header class="glass-panel sticky top-0 z-40 px-6 py-4 flex items-center justify-between border-b border-gray-800">
+        <div class="flex items-center space-x-3">
+            <div class="bg-blue-600 p-2 rounded-lg text-white"><i class="fa-solid fa-play text-xl"></i></div>
+            <h1 class="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">HQ Video Studio</h1>
+        </div>
+        <div class="flex items-center space-x-4" id="nav-auth-section"></div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8 max-w-6xl flex-grow">
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+            <div>
+                <h2 class="text-2xl font-bold">Thư Viện Video Đám Mây</h2>
+                <p class="text-gray-400 text-sm">Xem video chất lượng cao được xử lý và lưu trữ</p>
+            </div>
+            <button onclick="openUploadModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium flex items-center justify-center space-x-2">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <span>Tải Video Lên</span>
+            </button>
+        </div>
+        <div id="video-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8"></div>
+        <div class="flex justify-center items-center space-x-2 my-8" id="pagination-container"></div>
+    </main>
+        <!-- Modals & Script -->
+    <div id="auth-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="glass-panel p-6 rounded-2xl w-full max-w-md relative border border-gray-700">
+            <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            <div id="auth-form-container"></div>
+        </div>
+    </div>
+
+    <div id="upload-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center hidden p-4">
+        <div class="glass-panel p-6 rounded-2xl w-full max-w-md border border-gray-700 space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-blue-400">Đăng Video Mới</h3>
+                <button onclick="closeUploadModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-300 mb-1">Tiêu đề Video</label>
+                <input type="text" id="video-title-input" placeholder="Nhập tiêu đề..." class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-sm text-white">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-300 mb-1">Chọn File Video Từ Máy</label>
+                <input type="file" id="video-file-input" accept="video/*" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-gray-400 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:bg-blue-600 file:text-white">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-300 mb-1">Tốc Độ Khung Hình (FPS)</label>
+                <select id="fps-select" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-sm text-white">
+                    <option value="30">30 FPS</option>
+                    <option value="60">60 FPS</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-300 mb-1">Chất Lượng AI</label>
+                <select id="quality-select" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-sm text-white">
+                    <option value="700">700p (HQ)</option>
+                    <option value="1440">2K (Ultra HQ)</option>
+                </select>
+            </div>
+            <button onclick="processAndPublishVideo()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg">Đăng Lên Cloud</button>
+        </div>
+    </div>
+
+    <script>
+        let registeredUsers = [
+            { username: 'administration', password: 'Vocka' }
+        ];
+
+        let dbVideos = [
+            { id: 1, title: 'Demo Video HQ 1', author: 'Dora', quality: '2K', fps: 60, url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4' },
+            { id: 2, title: 'Cảnh Đẹp Núi Bà Đen', author: 'gà con', quality: '700p', fps: 30, url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4' }
+        ];
+        let currentUser = null;
+        let currentPage = 1;
+        const itemsPerPage = 10;
+
+        document.addEventListener('DOMContentLoaded', () => { renderAuthNav(); renderVideoFeed(); });
+
+        function renderAuthNav() {
+            const nav = document.getElementById('nav-auth-section');
+            if (currentUser) {
+                const isAdmin = currentUser.username === 'administration';
+                nav.innerHTML = `<span class="text-sm ${isAdmin ? 'text-amber-400 font-bold' : 'text-gray-300'}">${isAdmin ? '👑 Admin' : '👤'} ${currentUser.username}</span>
+                <button onclick="logout()" class="text-xs bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-700">Đăng Xuất</button>`;
+            } else {
+                nav.innerHTML = `<button onclick="openAuthModal('login')" class="text-sm text-gray-300 px-3 py-1.5">Đăng Nhập</button>
+                <button onclick="openAuthModal('register')" class="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg">Đăng Ký</button>`;
+            }
+        }
+
+        function renderVideoFeed() {
+            const grid = document.getElementById('video-grid');
+            grid.innerHTML = '';
+            const totalPages = Math.ceil(dbVideos.length / itemsPerPage) || 1;
+            const start = (currentPage - 1) * itemsPerPage;
+            const paginated = dbVideos.slice(start, start + itemsPerPage);
+
+            paginated.forEach(vid => {
+                const isAdmin = currentUser && currentUser.username === 'administration';
+                const card = document.createElement('div');
+                card.className = 'glass-panel rounded-xl overflow-hidden border border-gray-800 flex flex-col justify-between';
+                card.innerHTML = `
+                    <div>
+                        <div class="relative bg-black aspect-video"><video src="${vid.url}" controls class="w-full h-full object-contain"></video></div>
+                        <div class="p-4">
+                            <h3 class="font-bold text-gray-100 mb-1">${vid.title}</h3>
+                            <div class="flex justify-between text-xs text-gray-400"><span>👤 ${vid.author}</span><span>⚡ ${vid.fps} FPS</span></div>
+                        </div>
+                    </div>
+                    ${isAdmin ? `<div class="p-2 bg-red-950/30 border-t border-red-900/30 flex justify-end"><button onclick="deleteVideo(${vid.id})" class="bg-red-600 text-white text-xs px-3 py-1 rounded">Xóa (Admin)</button></div>` : ''}`;
+                grid.appendChild(card);
+            });
+            renderPagination(totalPages);
+        }
+
+        function renderPagination(totalPages) {
+            const container = document.getElementById('pagination-container');
+            container.innerHTML = '';
+            for (let i = 1; i <= totalPages; i++) {
+                const btn = document.createElement('button');
+                btn.className = `pagination-btn ${i === currentPage ? 'active' : ''}`;
+                btn.innerText = i;
+                btn.onclick = () => { currentPage = i; renderVideoFeed(); };
+                container.appendChild(btn);
+            }
+        }
+
+        function deleteVideo(id) {
+            if (confirm('Admin xóa video này?')) { dbVideos = dbVideos.filter(v => v.id !== id); renderVideoFeed(); }
+        }
+
+        function openAuthModal(mode) {
+            const container = document.getElementById('auth-form-container');
+            const isLogin = mode === 'login';
+            container.innerHTML = `
+                <h3 class="text-lg font-bold text-center mb-4">${isLogin ? 'Đăng Nhập' : 'Tạo Tài Khoản Mới (Register)'}</h3>
+                <form onsubmit="handleAuth(event, '${mode}')" class="space-y-3">
+                    <input type="text" id="auth-username" placeholder="Tên tài khoản..." required class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-sm text-white">
+                    <input type="password" id="auth-password" placeholder="Mật khẩu..." required class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-sm text-white">
+                    <div id="auth-error-msg" class="text-red-400 text-xs hidden text-center"></div>
+                    <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg text-sm">${isLogin ? 'Đăng Nhập' : 'Tạo Tài Khoản'}</button>
+                </form>
+                <div class="text-center mt-3">
+                    <button onclick="openAuthModal('${isLogin ? 'register' : 'login'}')" class="text-xs text-blue-400 hover:underline">
+                        ${isLogin ? 'Chưa có tài khoản? Đăng ký mới' : 'Đã có tài khoản? Đăng nhập'}
+                    </button>
+                </div>`;
+            document.getElementById('auth-modal').classList.remove('hidden');
+        }
+
+        function closeAuthModal() { document.getElementById('auth-modal').classList.add('hidden'); }
+        function openUploadModal() {
+            if (!currentUser) { alert('Bạn cần Đăng Ký / Đăng Nhập mới được đăng video nha!'); openAuthModal('login'); return; }
+            document.getElementById('upload-modal').classList.remove('hidden');
+        }
+        function closeUploadModal() { document.getElementById('upload-modal').classList.add('hidden'); }
+
+        function handleAuth(e, mode) {
+            e.preventDefault();
+            const u = document.getElementById('auth-username').value.trim();
+            const p = document.getElementById('auth-password').value.trim();
+            const errorDiv = document.getElementById('auth-error-msg');
+
+            if (mode === 'register') {
+                const exists = registeredUsers.some(user => user.username === u);
+                if (exists) {
+                    errorDiv.innerText = "Tài khoản này đã tồn tại! Vui lòng chọn tên khác.";
+                    errorDiv.classList.remove('hidden');
+                    return;
+                }
+                registeredUsers.push({ username: u, password: p });
+                currentUser = { username: u };
+                alert(`Đăng ký tài khoản thành công! Chào mừng ${u}.`);
+            } else {
+                const foundUser = registeredUsers.find(user => user.username === u && user.password === p);
+                if (!foundUser) {
+                    errorDiv.innerText = "Tài khoản hoặc mật khẩu không chính xác hoặc chưa đăng ký!";
+                    errorDiv.classList.remove('hidden');
+                    return;
+                }
+                currentUser = { username: foundUser.username };
+                alert(`Đăng nhập thành công!`);
+            }
+
+            closeAuthModal();
+            renderAuthNav();
+            renderVideoFeed();
+        }
+
+        function logout() { currentUser = null; renderAuthNav(); renderVideoFeed(); }
+
+        function processAndPublishVideo() {
+            const title = document.getElementById('video-title-input').value.trim();
+            const fileInput = document.getElementById('video-file-input');
+            if (!title) return alert('Vui lòng nhập tiêu đề video!');
+            
+            let videoUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
+            if (fileInput.files && fileInput.files[0]) {
+                videoUrl = URL.createObjectURL(fileInput.files[0]);
+            }
+
+            dbVideos.unshift({
+                id: Date.now(), title: title, author: currentUser.username,
+                quality: document.getElementById('quality-select').value + 'p',
+                fps: document.getElementById('fps-select').value,
+                url: videoUrl
+            });
+            closeUploadModal(); renderVideoFeed(); alert('Đã đăng video thành công!');
+        }
+    </script>
+</body>
+</html>
